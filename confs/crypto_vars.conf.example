@@ -1,0 +1,39 @@
+## Crypto_Ops Config File ##
+## Tech-Alchemist ## (http://git.io/vddbF) ##
+## pwd => /opt/tech-alchemist/crypto_ops/confs/ ##
+
+## Crypto/Coin Variables ##
+cryptoname="examplecoin"            # Name of Crypto
+binary_git_source="https://user:pass@host.com/example/projectname.git"  # To Clone Binary From #
+
+## CoreDaemon Variables ##
+core_need="false"                   # true / false # Core node required or not #
+core_p2p_port="11091"               # Blockchain P2P Node Port
+core_rpc_host="127.0.0.1"           # Serve : CoreDaemon Rpc IP/Hostname
+core_rpc_port="11092"               # Serve : CoreDaemon Rpc port to serve
+
+## Walletd Variables ##
+wallet_need="false"                 # true / false # Walletd node required or not #
+wallet_rpc_host="0.0.0.0"           # Serve : Wallet Service Rpc IP
+wallet_rpc_port="11093"             # Serve : Wallet Service Rpc port
+wallet_daemon_host="127.0.0.1"      # CoreDaemon Rpc IP/Hostname to connect walletd to
+wallet_daemon_port="11092"          # CoreDaemon Rpc port to connect walletd to
+wallet_file="example-containerfile" # Walletd Balance File Container
+wallet_pass="example-password"      # Walletd Balance File Password
+
+## SimpleWallet Variables ##
+simwal_need="false"                 # true / false  # SimpleWallet node required or not #
+simwal_rpc_host="0.0.0.0"           # Serve : Simplewallet Service Rpc IP
+simwal_rpc_port="11095"             # Serve : Simplewallet Service Rpc Port
+simwal_daemon_host="127.0.0.1"      # CoreDaemon Rpc IP/Hostname to connect simplewallet to
+simwal_daemon_port="11092"          # CoreDaemon Rpc port to connect simplewallet to
+simwal_file="example-file"          # SimpleWallet Balance File
+simwal_pass="example-password"      # SimpleWallet Balance File Password
+
+## Miner Variables ##
+miner_need="false"                  # true / false  # Miner  required or not #
+miner_daemon_host="127.0.0.1"       # CoreDaemon Rpc IP/Hostname to connect miner to
+miner_daemon_port="11092"           # CoreDaemon Rpc port to connect miner to
+miner_address=""                    # Block Crypto Reward Addess
+
+## E O C ##

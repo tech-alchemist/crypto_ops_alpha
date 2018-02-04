@@ -1,0 +1,60 @@
+#!/bin/bash
+## TechAlchemist (git.io/vddbF) ##
+## CoreNode Service ## Ubuntu 16.04 ##
+
+[[ `id -u` == "0" ]] || { printf "[-] Run from root / sudo." ; exit 1 ; }
+. /opt/tech-alchemist/crypto_ops/confs/crypto_vars.conf
+coindir="/home/${cryptoname}" ; binsdir="${coindir}/binaries"
+
+is_required()
+{
+ if [ "${core_need}" != "true" ] ; then
+  printf "[-] CoreDaemon for %s is not configured on this machine.\n    Check crypto_vars.conf :/\n" ${cryptoname}
+  exit 1 
+ fi
+}
+
+if [ ! -d "${binsdir}" ] ; then
+    printf "[/] Setting Core System \n"
+    rm -rf "/root/.$cryptoname" "${coindir}/.$cryptoname"
+    mkdir -p "${coindir}/blocks" "${coindir}/logs"
+    cd ${coindir}
+    git clone "$binary_git_source" "${binsdir}" || exit 1
+    cd ${binsdir}
+    find . -maxdepth 1 -exec chmod 755 {} \;
+    printf "[+] Configured \n"
+fi ; cd ${binsdir}
+
+stop_core(){
+printf "[/] Stopping Core P2P Node \n"
+sudo kill -9 `sudo lsof +D . | grep "${cryptoname}d" | awk '{print $2}'` &> /dev/null
+printf "[+] Stopped \n"
+}
+
+start_core(){
+    printf "[/] Starting Core P2P Node \n"
+${binsdir}/${cryptoname}d --no-console \
+  --conf "$binsdir/configs/main.conf" --data-dir "${coindir}/blocks" \
+  --log-file "${coindir}/logs/coredaemon.log" &> /dev/null & 
+    sleep 3
+    printf "[+] Started @ P2P %d \n" $core_p2p_port
+}
+
+is_required
+listenin=$(lsof -i:$core_p2p_port | grep LISTEN)
+
+if [ -z "$listenin" ] ; then
+    start_core
+else
+    printf "[/] Wanna Restart?? < y / n > : " ; read opt
+    if [ "$opt" == "y" ] ; then
+        stop_core
+        sleep 4
+        start_core
+    else
+        printf "[/] Core Node Already Running @ P2P %d \n" $core_p2p_port
+    fi
+fi
+
+exit 0
+## E O F ##

@@ -1,0 +1,90 @@
+#!/bin/bash
+## TechAlchemist (git.io/vddbF) ##
+## SimpleWallet Service ## Ubuntu 16.04 ##
+
+[[ `id -u` == "0" ]] || { printf "[-] Run from root / sudo." ; exit 1 ; }
+. /opt/tech-alchemist/crypto_ops/confs/crypto_vars.conf
+coindir="/home/${cryptoname}" ; binsdir="${coindir}/binaries"
+core_host="$simwal_daemon_host" ; core_port="$simwal_daemon_port"
+
+if [ ! -d "${binsdir}" ] ; then
+    printf "[/] Setting Core System \n"
+    rm -rf "/root/.$cryptoname" "${coindir}/.$cryptoname"
+    mkdir -p "${coindir}/blocks" "${coindir}/logs" "${binsdir}"
+    cd ${coindir}
+    git clone "$binary_git_source" "${binsdir}" || exit 1
+    cd ${binsdir}
+    find . -maxdepth 1 -exec chmod 755 {} \;
+    printf "[+] Configured \n"
+fi ; cd ${binsdir}
+
+is_required()
+{
+ if [ "${simwal_need}" != "true" ] ; then
+  printf "[-] SimpleWallet for %s is not configured on this machine.\n    Check crypto_vars.conf :/\n" ${cryptoname}
+  exit 1 
+ fi
+}
+
+core_check()
+{
+  nc -vzw 1 ${core_host} ${core_port} &> /dev/null || {
+  printf "[-] %s CoreRPC isn't listening @ %s:%d \n" "${cryptoname}" "${core_host}" "${core_port}"
+  exit 1 ; }
+}
+
+start_simwal(){
+printf "[/] Starting SimpleWallet Node \n"
+${binsdir}/simplewallet --conf "${binsdir}/configs/main.conf" --wallet-file "$wallet_file" --password \
+  "$simwal_pass" --wallet-rpc-bind-ip $simwal_rpc_host --wallet-rpc-bind-port $simwal_rpc_port \
+  --set_log 3 &> "${coindir}/logs/simplewallet.log" &
+printf "[+] Started @ RPC => ${simwal_rpc_host}:${simwal_rpc_port}\n[+] CryptoAddress => `cat ${wallet_file}.address`\n"
+}
+
+save_simwal()
+{
+printf "[/] Saving Wallet Data \n"
+curl -X POST \
+  http://${simwal_rpc_host}:${simwal_rpc_port}/json_rpc \
+  -H 'Cache-Control: no-cache' \
+  -d '{  
+  "params":{  
+  },
+  "jsonrpc":"2.0",
+  "id":"prod",
+  "method":"save"
+  }' &> /dev/null
+printf "[+] Saved \n"
+}
+
+stop_simwal()
+{
+printf "[/] Stopping SimpleWallet \n"
+sudo kill `sudo lsof +D . | grep "simplewallet" | awk '{print $2}'` &> /dev/null
+printf "[+] Stopped \n"
+}
+
+is_required
+wallet_file="${coindir}/balance/${simwal_file}"
+if [ ! -f "${wallet_file}.address" ] ; then
+    printf "[/] Creating simplewallet file \n"
+    mkdir -p ${coindir}/balance &> /dev/null
+printf "exit"|${binsdir}/simplewallet --conf "${binsdir}/configs/main.conf" --generate-new-wallet "$wallet_file" \
+  --password "$simwal_pass" --command export_keys > "${wallet_file}_keys.txt"
+    printf "[+] Created => ${wallet_file} \n[+] CryptoAddress => `cat ${wallet_file}.address` \n"
+fi
+
+###
+
+core_check
+listenin=$(lsof -i:$simwal_rpc_port | grep LISTEN)
+if [ ! -z "$listenin" ] ; then
+    save_simwal
+    sleep 2
+    stop_simwal
+    sleep 4    
+fi
+start_simwal
+
+exit 0
+## E O F ##

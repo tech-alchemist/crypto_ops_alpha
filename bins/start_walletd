@@ -1,0 +1,94 @@
+#!/bin/bash
+## TechAlchemist (git.io/vddbF) ##
+## Walletd Service ## Ubuntu 16.04 ##
+
+[[ `id -u` == "0" ]] || { printf "[-] Run from root / sudo." ; exit 1 ; }
+. /opt/tech-alchemist/crypto_ops/confs/crypto_vars.conf
+coindir="/home/${cryptoname}" ; binsdir="${coindir}/binaries"
+core_host="$wallet_daemon_host" ; core_port="$wallet_daemon_port"
+
+if [ ! -d "${binsdir}" ] ; then
+    printf "[/] Setting Core System \n"
+    rm -rf "/root/.$cryptoname" "${coindir}/.$cryptoname"
+    mkdir -p "${coindir}/blocks" "${coindir}/logs"
+    cd ${coindir}
+    git clone "$binary_git_source" "${binsdir}" || exit 1
+    cd ${binsdir}
+    find . -maxdepth 1 -exec chmod 755 {} \;
+    printf "[+] Configured \n"
+fi ; cd ${binsdir}
+
+is_required()
+{
+ if [ "${wallet_need}" != "true" ] ; then
+  printf "[-] Wallet for %s is not configured on this machine.\n    Check crypto_vars.conf :/\n" ${cryptoname}
+  exit 1 
+ fi
+}
+
+core_check()
+{
+  nc -vzw 1 ${core_host} ${core_port} &> /dev/null || {
+  printf "[-] %s CoreRPC isn't listening @ %s:%d \n" "${cryptoname}" "${core_host}" "${core_port}"
+  exit 1 ; }
+}
+
+start_walletd(){
+    printf "[/] Starting Walletd Node \n"
+${binsdir}/walletd -c "${binsdir}/configs/wallet.conf" \
+  --daemon-address ${core_host} --daemon-port ${core_port} \
+  --bind-address ${wallet_rpc_host} --bind-port ${wallet_rpc_port} \
+  --log-file "${logsdir}/wallet_daemon.log" \
+  --log-level 3 --data-dir "${coindir}/blocks" -d &> "${coindir}/logs/walletd.log"
+    printf "[+] Started @ RPC => ${wallet_rpc_host}:${wallet_rpc_port} \n"
+}
+
+save_walletd()
+{
+    printf "[/] Saving Container Data \n"
+curl -X POST \
+  http://${wallet_rpc_host}:${wallet_rpc_port}/json_rpc \
+  -H 'Cache-Control: no-cache' \
+  -d '{  
+  "params":{  
+  },
+  "jsonrpc":"2.0",
+  "id":"prod",
+  "method":"save"
+  }' &> /dev/null
+    printf "[+] Saved \n"
+}
+
+stop_walletd()
+{
+    printf "[/] Stopping Walletd \n"
+    sudo kill `sudo lsof +D . | grep "walletd" | awk '{print $2}'` &> /dev/null
+    printf "[+] Stopped \n"
+}
+
+is_required
+if [ ! -f "${coindir}/balance/${wallet_file}" ] ; then
+    printf "[/] Creating Walletd Container \n"
+    mkdir -p ${coindir}/balance &> /dev/null
+    rm -f ${binsdir}/configs/wallet.conf
+    cp -par ${binsdir}/configs/main.conf ${binsdir}/configs/wallet.conf &> /dev/null
+    printf "\ncontainer-file=${coindir}/balance/${wallet_file}" >> ${binsdir}/configs/wallet.conf
+    printf "\ncontainer-password=${wallet_pass}\n" >> ${binsdir}/configs/wallet.conf
+    ${binsdir}/walletd -c "${binsdir}/configs/wallet.conf" -g &> /dev/null
+    printf "[+] Created => ${wallet_file} \n"
+fi
+
+###
+
+core_check
+listenin=$(lsof -i:$wallet_rpc_port | grep LISTEN)
+if [ ! -z "$listenin" ] ; then
+    save_walletd
+    sleep 2
+    stop_walletd
+    sleep 4
+fi
+start_walletd
+
+exit 0
+## E O F ##
